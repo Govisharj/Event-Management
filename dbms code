@@ -1,0 +1,160 @@
+USE event_management;
+
+-- Users table for students and admins
+CREATE TABLE Users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL, -- Store hashed passwords
+    role ENUM('student', 'admin') NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Events table to store event details
+CREATE TABLE Events (
+    event_id INT PRIMARY KEY AUTO_INCREMENT,
+    event_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    event_date DATE,
+    location VARCHAR(100),
+    created_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    registration_count INT DEFAULT 0, -- New column to track registration count
+    status ENUM('upcoming', 'completed') DEFAULT 'upcoming',
+    FOREIGN KEY (created_by) REFERENCES Users(user_id) ON DELETE SET NULL
+);
+
+-- Registrations table to track student registrations and attendance
+CREATE TABLE Registrations (
+    registration_id INT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT NOT NULL,
+    event_id INT NOT NULL,
+    status ENUM('attended', 'registered') DEFAULT 'registered',
+    registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES Users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (event_id) REFERENCES Events(event_id) ON DELETE CASCADE
+);
+
+-- StudentProfile table for additional student-specific information
+CREATE TABLE StudentProfile (
+    student_id INT PRIMARY KEY,
+    full_name VARCHAR(100),
+    email VARCHAR(100) UNIQUE,
+    department VARCHAR(50),
+    year_of_study INT,
+    FOREIGN KEY (student_id) REFERENCES Users(user_id) ON DELETE CASCADE
+);
+
+-- Inserting admin users
+INSERT INTO Users (username, password, role) VALUES
+('admin_kiran', 'kiran_1234', 'admin'),
+('admin_rahul', 'rahul_5678', 'admin');
+
+-- Inserting student users with names and passwords
+INSERT INTO Users (username, password, role) VALUES
+('student_rohan', 'rohan_2345', 'student'),
+('student_priya', 'priya_6789', 'student'),
+('student_rahul', 'rahul_3456', 'student'),
+('student_adhitya', 'adhitya_4567', 'student'),
+('student_sneha', 'sneha_5678', 'student'),
+('student_vikram', 'vikram_6789', 'student'),
+('student_meera', 'meera_7890', 'student'),
+('student_amit', 'amit_8901', 'student'),
+('student_deepika', 'deepika_9012', 'student'),
+('student_ankit', 'ankit_0123', 'student');
+
+-- Profile details for each student
+INSERT INTO StudentProfile (student_id, full_name, email, department, year_of_study) VALUES
+(3, 'Rohan Sharma', 'rohan.sharma@example.com', 'Computer Science', 2),
+(4, 'Priya Mehta', 'priya.mehta@example.com', 'Information Technology', 3),
+(5, 'Rahul Gupta', 'rahul.gupta@example.com', 'Mechanical Engineering', 1),
+(6, 'Adhitya Kumar', 'adhitya.kumar@example.com', 'Electronics', 2),
+(7, 'Sneha Joshi', 'sneha.joshi@example.com', 'Civil Engineering', 4),
+(8, 'Vikram Patel', 'vikram.patel@example.com', 'Information Technology', 3),
+(9, 'Meera Reddy', 'meera.reddy@example.com', 'Computer Science', 2),
+(10, 'Amit Singh', 'amit.singh@example.com', 'Electrical Engineering', 1),
+(11, 'Deepika Roy', 'deepika.roy@example.com', 'Mechanical Engineering', 4),
+(12, 'Ankit Desai', 'ankit.desai@example.com', 'Computer Science', 3);
+
+-- Events created by admins (technical and non-technical)
+INSERT INTO Events (event_name, description, event_date, location, created_by) VALUES
+('Hackathon', 'Coding competition with problem-solving challenges', '2024-12-05', 'IT Lab', 1),
+('Workshop on AI', 'An introductory workshop on Artificial Intelligence', '2024-12-15', 'Room 202', 2),
+('Music Fest', 'Annual music festival with live bands and performances', '2024-12-20', 'Auditorium', 1),
+('Sports Meet', 'Inter-departmental sports competition', '2024-11-20', 'Sports Ground', 2),
+('Science Exhibition', 'Showcase of student projects and innovations', '2024-12-01', 'Main Hall', 1),
+('Dance Competition', 'Inter-college dance competition', '2024-12-10', 'Cultural Hall', 2),
+('Coding Bootcamp', 'Hands-on coding bootcamp for beginners', '2024-11-25', 'Room 305', 1),
+('Art Exhibition', 'Display of artworks created by students', '2025-01-10', 'Art Gallery', 2),
+('Debate Championship', 'Inter-department debate championship', '2025-01-20', 'Conference Room', 1),
+('Entrepreneurship Summit', 'A summit with guest speakers on startups', '2025-02-05', 'Auditorium', 1);
+
+-- Students registering for various events (some students register for multiple events)
+INSERT INTO Registrations (student_id, event_id, status) VALUES
+(3, 1, 'registered'), -- Rohan registered for Hackathon
+(4, 1, 'attended'),   -- Priya attended Hackathon
+(5, 2, 'registered'), -- Rahul registered for Workshop on AI
+(6, 3, 'registered'), -- Adhitya registered for Music Fest
+(7, 4, 'attended'),   -- Sneha attended Sports Meet
+(8, 5, 'registered'), -- Vikram registered for Science Exhibition
+(9, 6, 'registered'), -- Meera registered for Dance Competition
+(10, 7, 'attended'),  -- Amit attended Coding Bootcamp
+(3, 8, 'registered'), -- Rohan registered for Art Exhibition
+(5, 9, 'registered'), -- Rahul registered for Debate Championship
+(4, 3, 'registered'), -- Priya registered for Music Fest
+(7, 10, 'registered'), -- Sneha registered for Entrepreneurship Summit
+(8, 2, 'registered'); -- Vikram registered for Workshop on AI
+
+-- Trigger to automatically update registration count in Events table
+DELIMITER //
+CREATE TRIGGER update_registration_count
+AFTER INSERT ON Registrations
+FOR EACH ROW
+BEGIN
+    UPDATE Events
+    SET registration_count = registration_count + 1
+    WHERE event_id = NEW.event_id;
+END;
+//
+DELIMITER ;
+
+-- Trigger to update event status to 'completed' when the date passes (for admin view only)
+DELIMITER //
+CREATE TRIGGER update_event_status_after_date
+AFTER UPDATE ON Events
+FOR EACH ROW
+BEGIN
+    IF NEW.event_date < CURDATE() THEN
+        UPDATE Events
+        SET status = 'completed'
+        WHERE event_id = NEW.event_id;
+    END IF;
+END;
+//
+DELIMITER ;
+
+
+DELIMITER //
+CREATE FUNCTION GetMostPopularEvent()
+RETURNS INT
+DETERMINISTIC
+BEGIN
+    DECLARE popular_event_id INT;
+    SELECT event_id INTO popular_event_id
+    FROM Events
+    ORDER BY registration_count DESC
+    LIMIT 1;
+    RETURN popular_event_id;
+END;
+//
+DELIMITER ;
+
+
+
+SELECT Events.event_id, Events.event_name, Events.event_date, Events.location
+FROM Events
+WHERE Events.event_id NOT IN (
+    SELECT event_id FROM Registrations WHERE student_id = %s
+)
+AND Events.event_date >= %s
+
