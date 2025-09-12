@@ -118,20 +118,19 @@ END;
 //
 DELIMITER ;
 
--- Trigger to update event status to 'completed' when the date passes (for admin view only)
+-- procedure to update event status to 'completed' when the date passes (for admin view only)
 DELIMITER //
-CREATE TRIGGER update_event_status_after_date
-AFTER UPDATE ON Events
-FOR EACH ROW
+CREATE PROCEDURE UpdateEventStatuses()
 BEGIN
-    IF NEW.event_date < CURDATE() THEN
-        UPDATE Events
-        SET status = 'completed'
-        WHERE event_id = NEW.event_id;
-    END IF;
-END;
-//
+    UPDATE events
+    SET status = 'completed'
+    WHERE event_date < CURDATE() AND status = 'upcoming';
+END //
 DELIMITER ;
+
+# After admin credentials are validated
+cursor.execute("CALL UpdateEventStatuses()")
+
 
 
 DELIMITER //
